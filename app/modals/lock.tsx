@@ -144,7 +144,7 @@ const generateCSVFile = async (
   ].join('\n');
 
   try {
-    const fileUri = `${FileSystem.documentDirectory}keystroke_analysis.csv`;
+    const fileUri = `${FileSystem.documentDirectory}keystroke_analysis2.csv`;
     
     await FileSystem.writeAsStringAsync(fileUri, csvData, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -152,6 +152,7 @@ const generateCSVFile = async (
     
     const isSharingAvailable = await Sharing.isAvailableAsync();
     
+    const timer = setTimeout(async () => {
     if (isSharingAvailable) {
       await Sharing.shareAsync(fileUri, {
         mimeType: 'text/csv',
@@ -163,6 +164,7 @@ const generateCSVFile = async (
       console.log('Sharing is not available');
       console.log('File saved at:', fileUri);
     }
+  }, 10000);
     
     // Verify file creation
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
