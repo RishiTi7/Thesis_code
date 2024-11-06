@@ -6,14 +6,14 @@ export default function Layout() {
     <UserInactivityProvider>
       <Stack>
         <Stack.Screen 
-          name="(modals)/lock" 
+          name="(modals)/white" 
           options={{
             headerShown: false, 
             animation:'none',
           }}
         />
         <Stack.Screen
-          name = "(modals)/white"
+          name = "(modals)/lock"
           options = {{
             headerShown: false,
             animation: 'none',

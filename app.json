@@ -45,7 +45,8 @@
       "package": "com.anonymous.securityApp",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE"
       ]
     },
     "extra": {

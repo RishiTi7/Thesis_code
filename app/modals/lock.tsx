@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 // Utility function to shuffle an array
 const shuffleArray = (array: number[]) => {
@@ -71,7 +72,7 @@ const Page = () => {
       console.log('Key press data:', timeIntervals);
       console.log('Key release data:', keyReleaseData);
       console.log('Hold durations:', holdDurations);
-      generateCSVFile(timeIntervals);
+      generateCSVFile(timeIntervals, keyReleaseData, holdDurations);
 
       // Reset honeypot flag after each full code attempt
       setHoneypotPressed(false);
@@ -89,21 +90,91 @@ const Page = () => {
     return intervals;
   };
 
-  const generateCSVFile = async (data: { key: number; interval: number }[]) => {
-    const csvData =
-      'Key,Interval (ms)\n' + data.map((item) => `${item.key},${item.interval}`).join('\n');
-    const fileUri = FileSystem.documentDirectory + 'thesis_keystamps.csv';
+interface TimeInterval {
+  key: number;
+  interval: number;
+}
 
-    try {
-      await FileSystem.writeAsStringAsync(fileUri, csvData, {
-        encoding: FileSystem.EncodingType.UTF8,
+interface KeyRelease {
+  key: number;
+  timestamp: number;
+  holdDuration: number;
+}
+
+interface HoldDuration {
+  key: number;
+  duration: number;
+}
+
+const generateCSVFile = async (
+  timeIntervals: TimeInterval[],
+  keyReleaseData: KeyRelease[],
+  holdDurations: HoldDuration[]
+) => {
+  // Create CSV headers
+  const headers = [
+    'Data Type',
+    'Key',
+    'Time Interval (ms)',
+    'Timestamp',
+    'Hold Duration (ms)'
+  ].join(',');
+
+  // Format time intervals data
+  const intervalRows = timeIntervals.map(item => 
+    ['Time Interval', item.key, item.interval, '', ''].join(',')
+  );
+
+  // Format key release data
+  const releaseRows = keyReleaseData.map(item => 
+    ['Key Release', item.key, '', item.timestamp, item.holdDuration].join(',')
+  );
+
+  // Format hold durations data
+  const durationRows = holdDurations.map(item => 
+    ['Hold Duration', item.key, '', '', item.duration].join(',')
+  );
+
+  // Combine all data
+  const csvData = [
+    headers,
+    ...intervalRows,
+    ...releaseRows,
+    ...durationRows
+  ].join('\n');
+
+  try {
+    const fileUri = `${FileSystem.documentDirectory}keystroke_analysis.csv`;
+    
+    await FileSystem.writeAsStringAsync(fileUri, csvData, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+    
+    const isSharingAvailable = await Sharing.isAvailableAsync();
+    
+    if (isSharingAvailable) {
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Save Keystroke Analysis Data',
+        UTI: 'public.comma-separated-values-text'
       });
-      console.log('CSV file created at:', fileUri);
-    } catch (error) {
-      console.error('Error saving CSV file:', error);
+      console.log('File saved and shared successfully');
+    } else {
+      console.log('Sharing is not available');
+      console.log('File saved at:', fileUri);
     }
-  };
-
+    
+    // Verify file creation
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (fileInfo.exists) {
+      console.log('File size:', fileInfo.size, 'bytes');
+      console.log('File saved successfully with all metrics');
+    }
+    
+  } catch (error) {
+    console.error('Error handling file:', error);
+  }
+};
   // Function to handle key press (when the user touches the key)
   const onNumberPressIn = (number: number) => {
     const timestamp = Date.now();

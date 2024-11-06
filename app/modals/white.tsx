@@ -38,10 +38,6 @@ const Page = () => {
         <TouchableOpacity style={styles.button} onPress={() => router.push('/')}>
           <Text style={styles.buttonText}>Go to Home</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.button, styles.secondaryButton]}>
-          <Text style={styles.secondaryButtonText}>View Profile</Text>
-        </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>
   );
