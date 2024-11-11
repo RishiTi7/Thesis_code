@@ -152,7 +152,7 @@ const generateCSVFile = async (
     
     const isSharingAvailable = await Sharing.isAvailableAsync();
     
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(async()=>{
     if (isSharingAvailable) {
       await Sharing.shareAsync(fileUri, {
         mimeType: 'text/csv',
@@ -295,24 +295,11 @@ const generateCSVFile = async (
 
         {/* Honeypot keys */}
         <View style={styles.honeypotRow}>
-          <TouchableOpacity onPress={onHoneypotPress}>
-            <Text style={styles.honeypot}>%</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onHoneypotPress}>
-            <Text style={styles.honeypot}>#</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onHoneypotPress}>
-            <Text style={styles.honeypot}>@</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onHoneypotPress}>
-            <Text style={styles.honeypot}>!</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onHoneypotPress}>
-            <Text style={styles.honeypot}>$</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onHoneypotPress}>
-            <Text style={styles.honeypot}>^</Text>
-          </TouchableOpacity>
+          {['%', '#', '@', '!', '$', '^'].map((symbol) => (
+            <TouchableOpacity key={symbol} onPress={onHoneypotPress}>
+              <Text style={styles.honeypot}>{symbol}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
