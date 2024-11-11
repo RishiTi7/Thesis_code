@@ -33,6 +33,7 @@ const Page = () => {
   >([]);
   const [holdDurations, setHoldDurations] = useState<{ key: number; duration: number }[]>([]);
   const [honeypotPressed, setHoneypotPressed] = useState(false); // Honeypot flag
+  const [touchCoordinates, setTouchCoordinates] = useState({ x: 0, y: 0 }); // Store touch coordinates
 
   const codeLength = Array(6).fill(0);
   const router = useRouter();
@@ -72,7 +73,7 @@ const Page = () => {
       console.log('Key press data:', timeIntervals);
       console.log('Key release data:', keyReleaseData);
       console.log('Hold durations:', holdDurations);
-      generateCSVFile(timeIntervals, keyReleaseData, holdDurations);
+      generateCSVFile(timeIntervals, keyReleaseData, holdDurations, touchCoordinates);
 
       // Reset honeypot flag after each full code attempt
       setHoneypotPressed(false);
@@ -109,7 +110,8 @@ interface HoldDuration {
 const generateCSVFile = async (
   timeIntervals: TimeInterval[],
   keyReleaseData: KeyRelease[],
-  holdDurations: HoldDuration[]
+  holdDurations: HoldDuration[],
+  touchCoordinates: { x: number; y: number } // Pass touch coordinates to the function
 ) => {
   // Create CSV headers
   const headers = [
@@ -117,22 +119,24 @@ const generateCSVFile = async (
     'Key',
     'Time Interval (ms)',
     'Timestamp',
-    'Hold Duration (ms)'
+    'Hold Duration (ms)',
+    'Touch Position X',
+    'Touch Position Y' // Add touch position columns
   ].join(',');
 
   // Format time intervals data
-  const intervalRows = timeIntervals.map(item => 
-    ['Time Interval', item.key, item.interval, '', ''].join(',')
+  const intervalRows = timeIntervals.map(item =>
+    ['Time Interval', item.key, item.interval, '', '', touchCoordinates.x, touchCoordinates.y].join(',')
   );
 
   // Format key release data
-  const releaseRows = keyReleaseData.map(item => 
-    ['Key Release', item.key, '', item.timestamp, item.holdDuration].join(',')
+  const releaseRows = keyReleaseData.map(item =>
+    ['Key Release', item.key, '', item.timestamp, item.holdDuration, touchCoordinates.x, touchCoordinates.y].join(',')
   );
 
   // Format hold durations data
-  const durationRows = holdDurations.map(item => 
-    ['Hold Duration', item.key, '', '', item.duration].join(',')
+  const durationRows = holdDurations.map(item =>
+    ['Hold Duration', item.key, '', '', item.duration, touchCoordinates.x, touchCoordinates.y].join(',')
   );
 
   // Combine all data
@@ -144,28 +148,28 @@ const generateCSVFile = async (
   ].join('\n');
 
   try {
-    const fileUri = `${FileSystem.documentDirectory}keystroke_analysis2.csv`;
+    const fileUri = `${FileSystem.documentDirectory}thesisdata2.csv`;
     
     await FileSystem.writeAsStringAsync(fileUri, csvData, {
       encoding: FileSystem.EncodingType.UTF8,
     });
-    
+
     const isSharingAvailable = await Sharing.isAvailableAsync();
-    
-    const timer = setTimeout(async()=>{
-    if (isSharingAvailable) {
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'text/csv',
-        dialogTitle: 'Save Keystroke Analysis Data',
-        UTI: 'public.comma-separated-values-text'
-      });
-      console.log('File saved and shared successfully');
-    } else {
-      console.log('Sharing is not available');
-      console.log('File saved at:', fileUri);
-    }
-  }, 10000);
-    
+
+    const timer = setTimeout(async() => {
+      if (isSharingAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Save Keystroke Analysis Data',
+          UTI: 'public.comma-separated-values-text'
+        });
+        console.log('File saved and shared successfully');
+      } else {
+        console.log('Sharing is not available');
+        console.log('File saved at:', fileUri);
+      }
+    }, 5000);
+
     // Verify file creation
     const fileInfo = await FileSystem.getInfoAsync(fileUri);
     if (fileInfo.exists) {
@@ -218,6 +222,13 @@ const generateCSVFile = async (
     console.log('Honeypot key pressed!');
   };
 
+  // Handle touch event and log position
+  const handleTouch = (e) => {
+    const { locationX, locationY } = e.nativeEvent;
+    setTouchCoordinates({ x: locationX, y: locationY });
+    console.log(`Touch position: X: ${locationX}, Y: ${locationY}`);
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView>
@@ -237,7 +248,10 @@ const generateCSVFile = async (
           ))}
         </Animated.View>
 
-        <View style={styles.numbersView}>
+        <View
+          style={styles.numbersView}
+          onTouchStart={handleTouch} // Track touch start
+        >
           {/* Render the shuffled numbers in a 3x4 grid */}
           <View style={styles.row}>
             {[shuffledNumbers[6], shuffledNumbers[7], shuffledNumbers[8]].map((number) => (
@@ -300,7 +314,7 @@ const generateCSVFile = async (
               <Text style={styles.honeypot}>{symbol}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </View>       
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -348,5 +362,4 @@ const styles = StyleSheet.create({
     opacity: 0.2
   },
 });
-
 export default Page;
