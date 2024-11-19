@@ -148,7 +148,7 @@ const generateCSVFile = async (
   ].join('\n');
 
   try {
-    const fileUri = `${FileSystem.documentDirectory}thesisdata2.csv`;
+    const fileUri = `${FileSystem.documentDirectory}thesisdata3.csv`;
     
     await FileSystem.writeAsStringAsync(fileUri, csvData, {
       encoding: FileSystem.EncodingType.UTF8,
@@ -224,9 +224,31 @@ const generateCSVFile = async (
 
   // Handle touch event and log position
   const handleTouch = (e) => {
-    const { locationX, locationY } = e.nativeEvent;
+    const { locationX, locationY, target } = e.nativeEvent;
+    const buttonWidth = 60;
+    const buttonHeight = 60;
+    const tolerance = 20; // Adjust tolerance as needed
+  
+    const buttonCenterX = buttonWidth / 2;
+    const buttonCenterY = buttonHeight / 2;
+  
+    let side;
+    if (Math.abs(locationX - buttonCenterX) < tolerance) {
+      side = 'center';
+    } else if (locationX < buttonCenterX - tolerance) {
+      side = 'left';
+    } else if (locationX > buttonCenterX + tolerance) {
+      side = 'right';
+    } else if (Math.abs(locationY - buttonCenterY) < tolerance) {
+      side = 'center';
+    } else if (locationY < buttonCenterY - tolerance) {
+      side = 'top';
+    } else {
+      side = 'bottom';
+    }
+  
     setTouchCoordinates({ x: locationX, y: locationY });
-    console.log(`Touch position: X: ${locationX}, Y: ${locationY}`);
+    console.log(`Touch position: X: ${locationX}, Y: ${locationY}, Side: ${side}`);
   };
 
   return (
