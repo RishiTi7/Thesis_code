@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, View, Text, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { TouchableOpacity, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -25,6 +25,7 @@ const shuffleArray = (array: number[]) => {
 };
 
 const Page = () => {
+  const [startTime, setStartTime] = useState<number>(0);
   const [code, setCode] = useState<number[]>([]);
   const [shuffledNumbers, setShuffledNumbers] = useState<number[]>([]);
   const [keyPressData, setKeyPressData] = useState<{ key: number; timestamp: number }[]>([]);
@@ -34,6 +35,7 @@ const Page = () => {
   const [holdDurations, setHoldDurations] = useState<{ key: number; duration: number }[]>([]);
   const [honeypotPressed, setHoneypotPressed] = useState(false); // Honeypot flag
   const [touchCoordinates, setTouchCoordinates] = useState({ x: 0, y: 0 }); // Store touch coordinates
+  const [hoverData, setHoverData] = useState<{ x: number; y: number }[]>([]);
 
   const codeLength = Array(6).fill(0);
   const router = useRouter();
@@ -49,15 +51,35 @@ const Page = () => {
 
   // Shuffle the numbers when the component mounts
   useEffect(() => {
+    setStartTime(Date.now());
     const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
     setShuffledNumbers(shuffleArray(numbers));
   }, []);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (event) => {
+        const { locationX, locationY } = event.nativeEvent;
+        setHoverData((prev) => [...prev, { x: locationX, y: locationY }]);
+        console.log(`Cursor moved to: X=${locationX}, Y=${locationY}`);
+      },
+    })
+  ).current;
+
+  const navigateToNextPage = () => {
+    const endTime = Date.now();
+    const totalTime = endTime - startTime;
+    console.log(`Total time spent on lock page: ${totalTime} ms`);
+    console.log('Hover data:', hoverData);
+    router.replace('/modals/white');
+  };
 
   // Authentication check logic
   useEffect(() => {
     if (code.length === 6) {
       if (code.join('') === '111111' && !honeypotPressed) {
-        router.replace('/modals/white');
+        navigateToNextPage();
         setCode([]);
       } else {
         offset.value = withSequence(
@@ -91,96 +113,135 @@ const Page = () => {
     return intervals;
   };
 
-interface TimeInterval {
-  key: number;
-  interval: number;
-}
-
-interface KeyRelease {
-  key: number;
-  timestamp: number;
-  holdDuration: number;
-}
-
-interface HoldDuration {
-  key: number;
-  duration: number;
-}
-
-const generateCSVFile = async (
-  timeIntervals: TimeInterval[],
-  keyReleaseData: KeyRelease[],
-  holdDurations: HoldDuration[],
-  touchCoordinates: { x: number; y: number } // Pass touch coordinates to the function
-) => {
-  // Create CSV headers
-  const headers = [
-    'Data Type',
-    'Key',
-    'Time Interval (ms)',
-    'Timestamp',
-    'Hold Duration (ms)',
-    'Touch Position X',
-    'Touch Position Y' // Add touch position columns
-  ].join(',');
-
-  // Format time intervals data
-  const intervalRows = timeIntervals.map(item =>
-    ['Time Interval', item.key, item.interval, '', '', touchCoordinates.x, touchCoordinates.y].join(',')
-  );
-
-  // Format key release data
-  const releaseRows = keyReleaseData.map(item =>
-    ['Key Release', item.key, '', item.timestamp, item.holdDuration, touchCoordinates.x, touchCoordinates.y].join(',')
-  );
-
-  // Format hold durations data
-  const durationRows = holdDurations.map(item =>
-    ['Hold Duration', item.key, '', '', item.duration, touchCoordinates.x, touchCoordinates.y].join(',')
-  );
-
-  // Combine all data
-  const csvData = [
-    headers,
-    ...intervalRows,
-    ...releaseRows,
-    ...durationRows
-  ].join('\n');
-
-  try {
-    const fileUri = `${FileSystem.documentDirectory}thesisdata3.csv`;
-    
-    await FileSystem.writeAsStringAsync(fileUri, csvData, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-
-    const isSharingAvailable = await Sharing.isAvailableAsync();
-
-    const timer = setTimeout(async() => {
-      if (isSharingAvailable) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/csv',
-          dialogTitle: 'Save Keystroke Analysis Data',
-          UTI: 'public.comma-separated-values-text'
-        });
-        console.log('File saved and shared successfully');
-      } else {
-        console.log('Sharing is not available');
-        console.log('File saved at:', fileUri);
-      }
-    }, 5000);
-
-    // Verify file creation
-    const fileInfo = await FileSystem.getInfoAsync(fileUri);
-    if (fileInfo.exists) {
-      console.log('File size:', fileInfo.size, 'bytes');
-      console.log('File saved successfully with all metrics');
-    }
-    
-  } catch (error) {
-    console.error('Error handling file:', error);
+  interface TimeInterval {
+    key: number;
+    interval: number;
   }
-};
+
+  interface KeyRelease {
+    key: number;
+    timestamp: number;
+    holdDuration: number;
+  }
+
+  interface HoldDuration {
+    key: number;
+    duration: number;
+  }
+
+  interface HoverMovement {
+    x: number;
+    y: number;
+    timeStamp: number;
+  }
+
+  const generateCSVFile = async (
+    timeIntervals: TimeInterval[],
+    keyReleaseData: KeyRelease[],
+    holdDurations: HoldDuration[],
+    touchCoordinates: { x: number; y: number }
+    // totalTimeSpent: number,
+    // hoverMovement: HoverMovement[]
+  ) => {
+    // Create CSV headers
+    const headers = [
+      'Data Type',
+      'Key',
+      'Time Interval (ms)',
+      'Timestamp',
+      'Hold Duration (ms)',
+      'Touch Position X',
+      'Touch Position Y',
+    ].join(',');
+
+    // Format time intervals data
+    const intervalRows = timeIntervals.map((item) =>
+      [
+        'Time Interval',
+        item.key,
+        item.interval,
+        '',
+        '',
+        touchCoordinates.x,
+        touchCoordinates.y,
+      ].join(',')
+    );
+
+    // Format key release data
+    const releaseRows = keyReleaseData.map((item) =>
+      [
+        'Key Release',
+        item.key,
+        '',
+        item.timestamp,
+        item.holdDuration,
+        touchCoordinates.x,
+        touchCoordinates.y,
+      ].join(',')
+    );
+
+    // Format hold durations data
+    const durationRows = holdDurations.map((item) =>
+      [
+        'Hold Duration',
+        item.key,
+        '',
+        '',
+        item.duration,
+        touchCoordinates.x,
+        touchCoordinates.y,
+      ].join(',')
+    );
+
+    // const hoverRows = hoverMovement.map(item =>[
+    //   'Hover Movement', '', '', item.timeStamp, '', item.x, item.y].join(',')
+    // );
+
+    // const totalTimeRow = [`Total Time Spent (ms)`, '', '', '', totalTimeSpent, '', ''].join(',');
+
+    // Combine all data
+    const csvData = [
+      headers,
+      ...intervalRows,
+      ...releaseRows,
+      ...durationRows,
+      // ...hoverRows,
+      // totalTimeRow
+    ].join('\n');
+
+    try {
+      const fileUri = `${FileSystem.documentDirectory}thesisdata3.csv`;
+
+      await FileSystem.writeAsStringAsync(fileUri, csvData, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const isSharingAvailable = await Sharing.isAvailableAsync();
+
+      const timer = setTimeout(async () => {
+        if (isSharingAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/csv',
+            dialogTitle: 'Save Keystroke Analysis Data',
+            UTI: 'public.comma-separated-values-text',
+          });
+          console.log('File saved and shared successfully');
+        } else {
+          console.log('Sharing is not available');
+          console.log('File saved at:', fileUri);
+        }
+      }, 5000);
+
+      // Verify file creation
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (fileInfo.exists) {
+        console.log('File size:', fileInfo.size, 'bytes');
+        console.log('File saved successfully with all metrics');
+      }
+    } catch (error) {
+      console.error('Error handling file:', error);
+    }
+  };
   // Function to handle key press (when the user touches the key)
   const onNumberPressIn = (number: number) => {
     const timestamp = Date.now();
@@ -228,10 +289,10 @@ const generateCSVFile = async (
     const buttonWidth = 60;
     const buttonHeight = 60;
     const tolerance = 20; // Adjust tolerance as needed
-  
+
     const buttonCenterX = buttonWidth / 2;
     const buttonCenterY = buttonHeight / 2;
-  
+
     let side;
     if (Math.abs(locationX - buttonCenterX) < tolerance) {
       side = 'center';
@@ -246,14 +307,14 @@ const generateCSVFile = async (
     } else {
       side = 'bottom';
     }
-  
+
     setTouchCoordinates({ x: locationX, y: locationY });
     console.log(`Touch position: X: ${locationX}, Y: ${locationY}, Side: ${side}`);
   };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView>
+      <SafeAreaView {...panResponder.panHandlers}>
         <Text style={styles.greetings}>ML Authenticator</Text>
 
         <Animated.View style={[styles.codeView, style]}>
@@ -336,7 +397,7 @@ const generateCSVFile = async (
               <Text style={styles.honeypot}>{symbol}</Text>
             </TouchableOpacity>
           ))}
-        </View>       
+        </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -381,7 +442,7 @@ const styles = StyleSheet.create({
   honeypot: {
     fontSize: 40,
     color: 'red', // Optional
-    opacity: 0.2
+    opacity: 0.2,
   },
 });
 export default Page;
