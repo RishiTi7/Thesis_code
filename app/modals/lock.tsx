@@ -36,6 +36,9 @@ const Page = () => {
   const [honeypotPressed, setHoneypotPressed] = useState(false); // Honeypot flag
   const [touchCoordinates, setTouchCoordinates] = useState({ x: 0, y: 0 }); // Store touch coordinates
   const [hoverData, setHoverData] = useState<{ x: number; y: number }[]>([]);
+  const [totalTimeSpent, setTotalTimeSpent] = useState<number>(0); // For total time spent
+  const [touchSide, setTouchSide] = useState<string>(''); // For the touch side
+
 
   const codeLength = Array(6).fill(0);
   const router = useRouter();
@@ -70,6 +73,7 @@ const Page = () => {
   const navigateToNextPage = () => {
     const endTime = Date.now();
     const totalTime = endTime - startTime;
+    setTotalTimeSpent(totalTime); // Update the total time state
     console.log(`Total time spent on lock page: ${totalTime} ms`);
     console.log('Hover data:', hoverData);
     router.replace('/modals/white');
@@ -95,7 +99,15 @@ const Page = () => {
       console.log('Key press data:', timeIntervals);
       console.log('Key release data:', keyReleaseData);
       console.log('Hold durations:', holdDurations);
-      generateCSVFile(timeIntervals, keyReleaseData, holdDurations, touchCoordinates);
+      generateCSVFile(
+        timeIntervals,
+        keyReleaseData,
+        holdDurations,
+        touchCoordinates,
+        totalTimeSpent,
+        hoverData,
+        touchSide
+      );
 
       // Reset honeypot flag after each full code attempt
       setHoneypotPressed(false);
@@ -129,19 +141,14 @@ const Page = () => {
     duration: number;
   }
 
-  interface HoverMovement {
-    x: number;
-    y: number;
-    timeStamp: number;
-  }
-
   const generateCSVFile = async (
     timeIntervals: TimeInterval[],
     keyReleaseData: KeyRelease[],
     holdDurations: HoldDuration[],
-    touchCoordinates: { x: number; y: number }
-    // totalTimeSpent: number,
-    // hoverMovement: HoverMovement[]
+    touchCoordinates: { x: number; y: number },
+    totalTimeSpent: number,
+    hoverData: { x: number; y: number }[],
+    touchSide: string
   ) => {
     // Create CSV headers
     const headers = [
@@ -152,8 +159,12 @@ const Page = () => {
       'Hold Duration (ms)',
       'Touch Position X',
       'Touch Position Y',
+      'Hover Data X',
+      'Hover Data Y',
+      'Touch Side',
+      'Total Time Spent (ms)',
     ].join(',');
-
+  
     // Format time intervals data
     const intervalRows = timeIntervals.map((item) =>
       [
@@ -164,9 +175,13 @@ const Page = () => {
         '',
         touchCoordinates.x,
         touchCoordinates.y,
+        '',
+        '',
+        touchSide,
+        totalTimeSpent,
       ].join(',')
     );
-
+  
     // Format key release data
     const releaseRows = keyReleaseData.map((item) =>
       [
@@ -177,9 +192,13 @@ const Page = () => {
         item.holdDuration,
         touchCoordinates.x,
         touchCoordinates.y,
+        '',
+        '',
+        touchSide,
+        totalTimeSpent,
       ].join(',')
     );
-
+  
     // Format hold durations data
     const durationRows = holdDurations.map((item) =>
       [
@@ -190,34 +209,48 @@ const Page = () => {
         item.duration,
         touchCoordinates.x,
         touchCoordinates.y,
+        '',
+        '',
+        touchSide,
+        totalTimeSpent,
       ].join(',')
     );
-
-    // const hoverRows = hoverMovement.map(item =>[
-    //   'Hover Movement', '', '', item.timeStamp, '', item.x, item.y].join(',')
-    // );
-
-    // const totalTimeRow = [`Total Time Spent (ms)`, '', '', '', totalTimeSpent, '', ''].join(',');
-
+  
+    // Format hover data
+    const hoverRows = hoverData.map((item) =>
+      [
+        'Hover Data',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        item.x,
+        item.y,
+        touchSide,
+        totalTimeSpent,
+      ].join(',')
+    );
+  
     // Combine all data
     const csvData = [
       headers,
       ...intervalRows,
       ...releaseRows,
       ...durationRows,
-      // ...hoverRows,
-      // totalTimeRow
+      ...hoverRows,
     ].join('\n');
-
+  
     try {
-      const fileUri = `${FileSystem.documentDirectory}thesisdata3.csv`;
-
+      const fileUri = `${FileSystem.documentDirectory}finalUpdateMetrics.csv`;
+  
       await FileSystem.writeAsStringAsync(fileUri, csvData, {
         encoding: FileSystem.EncodingType.UTF8,
       });
-
+  
       const isSharingAvailable = await Sharing.isAvailableAsync();
-
+  
       const timer = setTimeout(async () => {
         if (isSharingAvailable) {
           await Sharing.shareAsync(fileUri, {
@@ -231,7 +264,7 @@ const Page = () => {
           console.log('File saved at:', fileUri);
         }
       }, 5000);
-
+  
       // Verify file creation
       const fileInfo = await FileSystem.getInfoAsync(fileUri);
       if (fileInfo.exists) {
@@ -242,6 +275,7 @@ const Page = () => {
       console.error('Error handling file:', error);
     }
   };
+  
   // Function to handle key press (when the user touches the key)
   const onNumberPressIn = (number: number) => {
     const timestamp = Date.now();
@@ -289,10 +323,10 @@ const Page = () => {
     const buttonWidth = 60;
     const buttonHeight = 60;
     const tolerance = 20; // Adjust tolerance as needed
-
+  
     const buttonCenterX = buttonWidth / 2;
     const buttonCenterY = buttonHeight / 2;
-
+  
     let side;
     if (Math.abs(locationX - buttonCenterX) < tolerance) {
       side = 'center';
@@ -307,10 +341,12 @@ const Page = () => {
     } else {
       side = 'bottom';
     }
-
+  
     setTouchCoordinates({ x: locationX, y: locationY });
+    setTouchSide(side); // Update the state with the calculated touch side
     console.log(`Touch position: X: ${locationX}, Y: ${locationY}, Side: ${side}`);
   };
+  
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
