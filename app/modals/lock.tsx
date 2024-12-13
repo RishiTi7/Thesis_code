@@ -38,6 +38,7 @@ const Page = () => {
   const [hoverData, setHoverData] = useState<{ x: number; y: number }[]>([]);
   const [totalTimeSpent, setTotalTimeSpent] = useState<number>(0); // For total time spent
   const [touchSide, setTouchSide] = useState<string>(''); // For the touch side
+  const [backspaceCount, setBackspaceCount] = useState<number>(0); // New state to track backspace count
 
 
   const codeLength = Array(6).fill(0);
@@ -82,9 +83,10 @@ const Page = () => {
   // Authentication check logic
   useEffect(() => {
     if (code.length === 6) {
-      if (code.join('') === '111111' && !honeypotPressed) {
+      if (code.join('') === '111111' && !honeypotPressed && backspaceCount <=2) {
         navigateToNextPage();
         setCode([]);
+        setBackspaceCount(0);
       } else {
         offset.value = withSequence(
           withTiming(-OFFSET, { duration: TIME / 2 }),
@@ -93,6 +95,7 @@ const Page = () => {
         );
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         setCode([]);
+        setBackspaceCount(0);
       }
 
       const timeIntervals = calculateTimeIntervals();
@@ -112,7 +115,7 @@ const Page = () => {
       // Reset honeypot flag after each full code attempt
       setHoneypotPressed(false);
     }
-  }, [code]);
+  }, [code, backspaceCount]);
 
   // Function to calculate time intervals between key presses
   const calculateTimeIntervals = () => {
@@ -299,6 +302,7 @@ const Page = () => {
 
   const numberBackSpace = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setBackspaceCount(prevCount => prevCount + 1);
     setCode(code.slice(0, -1));
   };
 
@@ -478,7 +482,7 @@ const styles = StyleSheet.create({
   honeypot: {
     fontSize: 40,
     color: 'red', // Optional
-    opacity: 0.2,
+    opacity: 0,
   },
 });
 export default Page;

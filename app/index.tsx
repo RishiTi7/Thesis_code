@@ -1,11 +1,84 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
+
+// correct lon: -122.084, test lon: -93.6873684
+const TRUSTED_LOCATIONS = [
+  { name: 'Home', latitude: 37.4219983, longitude: -122.084, radiusKm: 2 },
+  { name: 'Coover Hall', latitude: 42.02842, longitude: -93.65096, radiusKm: 2 }
+];
+
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Radius of the Earth in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Returns distance in kilometers
+};
 
 export default function Home() {
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Request location permission and get the user's current location
+  useEffect(() => {
+    const requestLocationPermission = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        setHasLocationPermission(true);
+        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setCurrentLocation(location);
+      } else {
+        setHasLocationPermission(false);
+        console.log('Location permission denied');
+      }
+    };
+
+    requestLocationPermission();
+  }, []);
+
+  // Function to check if the user is within the trusted location's radius
+  const checkLocationProximity = () => {
+    if (currentLocation) {
+      const trustedLocation = TRUSTED_LOCATIONS[0]; // Assuming only one trusted location
+      const distance = calculateDistance(
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude,
+        trustedLocation.latitude,
+        trustedLocation.longitude
+      );
+
+      // Adding a tolerance of 0.1 km (100 meters)
+      const distanceTolerance = 0.1;
+      if (distance <= trustedLocation.radiusKm + distanceTolerance) {
+        setIsAuthenticated(true);
+        router.push('/modals/lock');
+      } else {
+        setIsAuthenticated(false);
+        console.log(`You are not within the trusted location. Distance: ${distance.toFixed(2)} km`);
+        console.log(currentLocation);
+
+      }
+    }
+  };
+
+  const handleLockScreenNavigation = () => {
+    if (hasLocationPermission && currentLocation) {
+      checkLocationProximity();
+    } else {
+      console.log('Location permission is required for this action');
+    }
+  };
+
   return (
     <>
       <Stack.Screen options={{ title: 'Home' }} />
@@ -27,7 +100,7 @@ export default function Home() {
         <Text style={styles.subtitle}>Your personal security APP</Text>
 
         {/* Button Section */}
-        <TouchableOpacity style={styles.button} onPress={() => router.push('/modals/lock')}>
+        <TouchableOpacity style={styles.button} onPress={handleLockScreenNavigation}>
           <Text style={styles.buttonText}>Lock Screen</Text>
         </TouchableOpacity>
 
