@@ -16,7 +16,8 @@
         {
           "faceIDPermission": "Allow ${PRODUCT_NAME} to use Face Id."
         }
-      ]
+      ],
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -46,7 +47,8 @@
       "permissions": [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
-        "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE"
       ]
     },
     "extra": {

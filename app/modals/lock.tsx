@@ -15,6 +15,7 @@ import Animated, {
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import Voice from '@react-native-voice/voice';
 
 // Utility function to shuffle an array
 const shuffleArray = (array: number[]) => {
@@ -39,6 +40,7 @@ const Page = () => {
   const [totalTimeSpent, setTotalTimeSpent] = useState<number>(0); // For total time spent
   const [touchSide, setTouchSide] = useState<string>(''); // For the touch side
   const [backspaceCount, setBackspaceCount] = useState<number>(0); // New state to track backspace count
+  const [spokenWord, setSpokenWord] = useState('');
 
 
   const codeLength = Array(6).fill(0);
@@ -52,6 +54,7 @@ const Page = () => {
 
   const OFFSET = 20;
   const TIME = 80;
+  const CORRECT_WORD = 'hello';
 
   // Shuffle the numbers when the component mounts
   useEffect(() => {
@@ -80,13 +83,84 @@ const Page = () => {
     router.replace('/modals/white');
   };
 
+  useEffect(() => {
+    let voiceActive = true;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+  
+    const initVoiceRecognition = async () => {
+      try {
+        if (!voiceActive) return;
+        
+        // Destroy existing instance before starting new one
+        await Voice.destroy();
+        await Voice.start('en-US');
+        console.log('Voice recognition started');
+        retryCount = 0; // Reset retry count on successful start
+      } catch (error) {
+        console.error('Error starting voice recognition:', error);
+        retryCount++;
+        
+        if (retryCount < MAX_RETRIES && voiceActive) {
+          console.log(`Retrying voice recognition (${retryCount}/${MAX_RETRIES})`);
+          setTimeout(initVoiceRecognition, 2000);
+        } else {
+          console.log('Max retries reached. Voice recognition disabled.');
+        }
+      }
+    };
+  
+    Voice.onSpeechResults = (event) => {
+      if (event.value) {
+        const recognizedText = event.value[0].toLowerCase();
+        setSpokenWord(recognizedText);
+        console.log('Recognized text:', recognizedText);
+  
+        // Only restart if the word isn't correct and we haven't hit max retries
+        if (!recognizedText.includes(CORRECT_WORD) && voiceActive && retryCount < MAX_RETRIES) {
+          Voice.stop().then(() => {
+            initVoiceRecognition();
+          });
+        }
+      }
+    };
+  
+    Voice.onSpeechError = (error) => {
+      console.error('Speech error:', error);
+      
+      // Check specific error codes
+      if (error.error?.code === '7') {
+        console.log('No match found, retrying...');
+        retryCount++;
+        
+        if (retryCount < MAX_RETRIES && voiceActive) {
+          setTimeout(initVoiceRecognition, 1000);
+        }
+      }
+    };
+  
+    // Initialize voice recognition
+    initVoiceRecognition();
+  
+    return () => {
+      voiceActive = false;
+      Voice.destroy().then(Voice.removeAllListeners);
+      console.log('Voice recognition cleaned up');
+    };
+  }, []);  
+  
+
   // Authentication check logic
   useEffect(() => {
     if (code.length === 6) {
-      if (code.join('') === '111111' && !honeypotPressed && backspaceCount <=2) {
+      const correctCode = code.join('') === '111111' && !honeypotPressed && backspaceCount == 3;
+      const correctVoice = spokenWord.includes(CORRECT_WORD);
+
+      if (correctCode && correctVoice) {
         navigateToNextPage();
         setCode([]);
         setBackspaceCount(0);
+        setSpokenWord('');
       } else {
         offset.value = withSequence(
           withTiming(-OFFSET, { duration: TIME / 2 }),
@@ -115,7 +189,7 @@ const Page = () => {
       // Reset honeypot flag after each full code attempt
       setHoneypotPressed(false);
     }
-  }, [code, backspaceCount]);
+  }, [code, backspaceCount, spokenWord]);
 
   // Function to calculate time intervals between key presses
   const calculateTimeIntervals = () => {
@@ -303,7 +377,9 @@ const Page = () => {
   const numberBackSpace = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setBackspaceCount(prevCount => prevCount + 1);
-    setCode(code.slice(0, -1));
+    if (code.length > 0) {
+      setCode(code.slice(0, -1));
+    }
   };
 
   const onBiometricPress = async () => {
