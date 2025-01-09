@@ -16,6 +16,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import Voice from '@react-native-voice/voice';
+import MotionAuth from './motionAuth';
 
 // Utility function to shuffle an array
 const shuffleArray = (array: number[]) => {
@@ -83,80 +84,80 @@ const Page = () => {
     router.replace('/modals/white');
   };
 
-  useEffect(() => {
-    let voiceActive = true;
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
+  // useEffect(() => {
+  //   let voiceActive = true;
+  //   let retryCount = 0;
+  //   const MAX_RETRIES = 3;
   
-    const initVoiceRecognition = async () => {
-      try {
-        if (!voiceActive) return;
+  //   const initVoiceRecognition = async () => {
+  //     try {
+  //       if (!voiceActive) return;
         
-        // Destroy existing instance before starting new one
-        await Voice.destroy();
-        await Voice.start('en-US');
-        console.log('Voice recognition started');
-        retryCount = 0; // Reset retry count on successful start
-      } catch (error) {
-        console.error('Error starting voice recognition:', error);
-        retryCount++;
+  //       // Destroy existing instance before starting new one
+  //       await Voice.destroy();
+  //       await Voice.start('en-US');
+  //       console.log('Voice recognition started');
+  //       retryCount = 0; // Reset retry count on successful start
+  //     } catch (error) {
+  //       console.error('Error starting voice recognition:', error);
+  //       retryCount++;
         
-        if (retryCount < MAX_RETRIES && voiceActive) {
-          console.log(`Retrying voice recognition (${retryCount}/${MAX_RETRIES})`);
-          setTimeout(initVoiceRecognition, 2000);
-        } else {
-          console.log('Max retries reached. Voice recognition disabled.');
-        }
-      }
-    };
+  //       if (retryCount < MAX_RETRIES && voiceActive) {
+  //         console.log(`Retrying voice recognition (${retryCount}/${MAX_RETRIES})`);
+  //         setTimeout(initVoiceRecognition, 2000);
+  //       } else {
+  //         console.log('Max retries reached. Voice recognition disabled.');
+  //       }
+  //     }
+  //   };
   
-    Voice.onSpeechResults = (event) => {
-      if (event.value) {
-        const recognizedText = event.value[0].toLowerCase();
-        setSpokenWord(recognizedText);
-        console.log('Recognized text:', recognizedText);
+  //   Voice.onSpeechResults = (event) => {
+  //     if (event.value) {
+  //       const recognizedText = event.value[0].toLowerCase();
+  //       setSpokenWord(recognizedText);
+  //       console.log('Recognized text:', recognizedText);
   
-        // Only restart if the word isn't correct and we haven't hit max retries
-        if (!recognizedText.includes(CORRECT_WORD) && voiceActive && retryCount < MAX_RETRIES) {
-          Voice.stop().then(() => {
-            initVoiceRecognition();
-          });
-        }
-      }
-    };
+  //       // Only restart if the word isn't correct and we haven't hit max retries
+  //       if (!recognizedText.includes(CORRECT_WORD) && voiceActive && retryCount < MAX_RETRIES) {
+  //         Voice.stop().then(() => {
+  //           initVoiceRecognition();
+  //         });
+  //       }
+  //     }
+  //   };
   
-    Voice.onSpeechError = (error) => {
-      console.error('Speech error:', error);
+  //   Voice.onSpeechError = (error) => {
+  //     console.error('Speech error:', error);
       
-      // Check specific error codes
-      if (error.error?.code === '7') {
-        console.log('No match found, retrying...');
-        retryCount++;
+  //     // Check specific error codes
+  //     if (error.error?.code === '7') {
+  //       console.log('No match found, retrying...');
+  //       retryCount++;
         
-        if (retryCount < MAX_RETRIES && voiceActive) {
-          setTimeout(initVoiceRecognition, 1000);
-        }
-      }
-    };
+  //       if (retryCount < MAX_RETRIES && voiceActive) {
+  //         setTimeout(initVoiceRecognition, 1000);
+  //       }
+  //     }
+  //   };
   
-    // Initialize voice recognition
-    initVoiceRecognition();
+  //   // Initialize voice recognition
+  //   initVoiceRecognition();
   
-    return () => {
-      voiceActive = false;
-      Voice.destroy().then(Voice.removeAllListeners);
-      console.log('Voice recognition cleaned up');
-    };
-  }, []);  
+  //   return () => {
+  //     voiceActive = false;
+  //     Voice.destroy().then(Voice.removeAllListeners);
+  //     console.log('Voice recognition cleaned up');
+  //   };
+  // }, []);  
   
 
   // Authentication check logic
   useEffect(() => {
     if (code.length === 6) {
       const correctCode = code.join('') === '111111' && !honeypotPressed && backspaceCount == 3;
-      const correctVoice = spokenWord.includes(CORRECT_WORD);
-
-      if (correctCode && correctVoice) {
+      // const correctVoice = spokenWord.includes(CORRECT_WORD);
+      if (correctCode){
+      // if (correctCode && correctVoice) {
         navigateToNextPage();
         setCode([]);
         setBackspaceCount(0);
@@ -229,98 +230,51 @@ const Page = () => {
   ) => {
     // Create CSV headers
     const headers = [
-      'Data Type',
-      'Key',
-      'Time Interval (ms)',
-      'Timestamp',
+      'Key Number',
+      'Press Timestamp',
+      'Release Timestamp',
       'Hold Duration (ms)',
+      'Time Interval from Previous (ms)',
       'Touch Position X',
       'Touch Position Y',
+      'Touch Side',
       'Hover Data X',
       'Hover Data Y',
-      'Touch Side',
-      'Total Time Spent (ms)',
+      // 'Total Time Spent (ms)',
     ].join(',');
   
-    // Format time intervals data
-    const intervalRows = timeIntervals.map((item) =>
-      [
-        'Time Interval',
-        item.key,
-        item.interval,
-        '',
-        '',
-        touchCoordinates.x,
-        touchCoordinates.y,
-        '',
-        '',
-        touchSide,
-        totalTimeSpent,
-      ].join(',')
-    );
+    // Create an array to store structured data for each key press
+    const structuredData = [];
   
-    // Format key release data
-    const releaseRows = keyReleaseData.map((item) =>
-      [
-        'Key Release',
-        item.key,
-        '',
-        item.timestamp,
-        item.holdDuration,
-        touchCoordinates.x,
-        touchCoordinates.y,
-        '',
-        '',
-        touchSide,
-        totalTimeSpent,
-      ].join(',')
-    );
+    // Process data for each key press (up to 6 digits)
+    for (let i = 0; i < Math.min(6, keyReleaseData.length); i++) {
+      const keyRelease = keyReleaseData[i];
+      const keyPress = keyPressData[i];
+      const timeInterval = i > 0 ? timeIntervals[i - 1].interval : 0;
+      const hover = hoverData[i] || { x: '', y: '' };
   
-    // Format hold durations data
-    const durationRows = holdDurations.map((item) =>
-      [
-        'Hold Duration',
-        item.key,
-        '',
-        '',
-        item.duration,
-        touchCoordinates.x,
-        touchCoordinates.y,
-        '',
-        '',
-        touchSide,
-        totalTimeSpent,
-      ].join(',')
-    );
+      const row = [
+        keyRelease.key,                    // Key Number
+        keyPress?.timestamp || '',         // Press Timestamp
+        keyRelease.timestamp,              // Release Timestamp
+        keyRelease.holdDuration,           // Hold Duration
+        timeInterval,                      // Time Interval from Previous
+        touchCoordinates.x,                // Touch Position X
+        touchCoordinates.y,                // Touch Position Y
+        touchSide,                         // Touch Side
+        hover.x,                           // Hover Data X
+        hover.y,                           // Hover Data Y
+        // totalTimeSpent,                    // Total Time Spent
+      ].join(',');
   
-    // Format hover data
-    const hoverRows = hoverData.map((item) =>
-      [
-        'Hover Data',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        item.x,
-        item.y,
-        touchSide,
-        totalTimeSpent,
-      ].join(',')
-    );
+      structuredData.push(row);
+    }
   
-    // Combine all data
-    const csvData = [
-      headers,
-      ...intervalRows,
-      ...releaseRows,
-      ...durationRows,
-      ...hoverRows,
-    ].join('\n');
+    // Combine headers and data
+    const csvData = [headers, ...structuredData].join('\n');
   
     try {
-      const fileUri = `${FileSystem.documentDirectory}finalUpdateMetrics.csv`;
+      const fileUri = `${FileSystem.documentDirectory}data20.csv`;
   
       await FileSystem.writeAsStringAsync(fileUri, csvData, {
         encoding: FileSystem.EncodingType.UTF8,
@@ -328,25 +282,23 @@ const Page = () => {
   
       const isSharingAvailable = await Sharing.isAvailableAsync();
   
-      const timer = setTimeout(async () => {
-        if (isSharingAvailable) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/csv',
-            dialogTitle: 'Save Keystroke Analysis Data',
-            UTI: 'public.comma-separated-values-text',
-          });
-          console.log('File saved and shared successfully');
-        } else {
-          console.log('Sharing is not available');
-          console.log('File saved at:', fileUri);
-        }
-      }, 5000);
+      if (isSharingAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Save Keystroke Analysis Data',
+          UTI: 'public.comma-separated-values-text',
+        });
+        console.log('File saved and shared successfully');
+      } else {
+        console.log('Sharing is not available');
+        console.log('File saved at:', fileUri);
+      }
   
       // Verify file creation
       const fileInfo = await FileSystem.getInfoAsync(fileUri);
       if (fileInfo.exists) {
         console.log('File size:', fileInfo.size, 'bytes');
-        console.log('File saved successfully with all metrics');
+        console.log('File saved successfully with structured metrics');
       }
     } catch (error) {
       console.error('Error handling file:', error);
@@ -386,6 +338,14 @@ const Page = () => {
     const { success } = await LocalAuthentication.authenticateAsync();
     if (success) {
       router.replace('/');
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const handleMotionAuthentication = (success: boolean) => {
+    if (success) {
+      // router.replace('/modals/white');
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
@@ -507,13 +467,14 @@ const Page = () => {
         </View>
 
         {/* Honeypot keys */}
-        <View style={styles.honeypotRow}>
+        {/* <View style={styles.honeypotRow}>
           {['%', '#', '@', '!', '$', '^'].map((symbol) => (
             <TouchableOpacity key={symbol} onPress={onHoneypotPress}>
               <Text style={styles.honeypot}>{symbol}</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          ))} */}
+        {/* </View> */}
+        <MotionAuth onAuthenticationComplete={handleMotionAuthentication} />
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -558,7 +519,7 @@ const styles = StyleSheet.create({
   honeypot: {
     fontSize: 40,
     color: 'red', // Optional
-    opacity: 0,
+    opacity: 0.4,
   },
 });
 export default Page;
