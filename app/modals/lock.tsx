@@ -281,18 +281,22 @@ const Page = () => {
       });
   
       const isSharingAvailable = await Sharing.isAvailableAsync();
+
+      const timer = setTimeout(async()=>{
+
+        if (isSharingAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/csv',
+            dialogTitle: 'Save Keystroke Analysis Data',
+            UTI: 'public.comma-separated-values-text',
+          });
+          console.log('File saved and shared successfully');
+        } else {
+          console.log('Sharing is not available');
+          console.log('File saved at:', fileUri);
+        }
+      },3000)
   
-      if (isSharingAvailable) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/csv',
-          dialogTitle: 'Save Keystroke Analysis Data',
-          UTI: 'public.comma-separated-values-text',
-        });
-        console.log('File saved and shared successfully');
-      } else {
-        console.log('Sharing is not available');
-        console.log('File saved at:', fileUri);
-      }
   
       // Verify file creation
       const fileInfo = await FileSystem.getInfoAsync(fileUri);
