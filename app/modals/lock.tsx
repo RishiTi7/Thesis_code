@@ -17,6 +17,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import Voice from '@react-native-voice/voice';
 import MotionAuth from './motionAuth';
+import { GestureResponderEvent } from 'react-native';
 
 // Utility function to shuffle an array
 const shuffleArray = (array: number[]) => {
@@ -361,8 +362,7 @@ const Page = () => {
     console.log('Honeypot key pressed!');
   };
 
-  // Handle touch event and log position
-  const handleTouch = (e) => {
+  const handleTouch = (e: GestureResponderEvent) => {
     const { locationX, locationY, target } = e.nativeEvent;
     const buttonWidth = 60;
     const buttonHeight = 60;
@@ -387,7 +387,7 @@ const Page = () => {
     }
   
     setTouchCoordinates({ x: locationX, y: locationY });
-    setTouchSide(side); // Update the state with the calculated touch side
+    setTouchSide(side);
     console.log(`Touch position: X: ${locationX}, Y: ${locationY}, Side: ${side}`);
   };
   
